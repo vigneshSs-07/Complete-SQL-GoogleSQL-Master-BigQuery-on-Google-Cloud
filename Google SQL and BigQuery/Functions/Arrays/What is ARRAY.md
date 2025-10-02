@@ -12,7 +12,7 @@ Here’s a quick guide to mastering it:
 
 ---
 
-### Create an ARRAY from a Subquery
+### Creating an ARRAY from a Subquery
 
 - `ARRAY()` returns an array with **one element per row** from a subquery:
   - **One column:** each element is that column’s value
