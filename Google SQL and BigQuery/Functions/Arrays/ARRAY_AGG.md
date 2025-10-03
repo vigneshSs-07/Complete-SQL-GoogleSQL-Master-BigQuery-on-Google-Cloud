@@ -1,6 +1,5 @@
-# ARRAY_AGG and ARRAY_CONCAT_AGG
+# ARRAY_CONCAT_AGG
 
-[ARRAY_CONCAT_AGG](https://cloud.google.com/bigquery/docs/reference/standard-sql/aggregate_functions#array_concat_agg)
 [ARRAY_AGG](https://cloud.google.com/bigquery/docs/reference/standard-sql/aggregate_functions#array_agg)
 
 
