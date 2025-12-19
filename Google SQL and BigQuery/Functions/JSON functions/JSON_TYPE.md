@@ -1,11 +1,23 @@
-# 🚀 Understanding `JSON_TYPE()` in BigQuery — With a Practical Example!
+🚀 **Understand Your JSON Better in BigQuery with `JSON_TYPE()` (Theory + Real-World SQL Examples)**
 
-Working with semi-structured data is becoming a standard in modern data engineering. Google BigQuery makes this easier with powerful JSON functions — and one of the simplest yet most useful is **`JSON_TYPE()`**.
+When working with **semi-structured data in BigQuery**, one common challenge is 👉
+**“What type of JSON value am I actually dealing with?”**
 
-### 🔍 What does `JSON_TYPE()` do?
+Is it an **object**, **array**, **string**, **number**, or just **null**?
 
-`JSON_TYPE()` identifies the **outermost JSON value type** and returns it as a string.
-Supported types include:
+That’s where **`JSON_TYPE()`** becomes extremely useful.
+
+---
+
+## 🔍 What is `JSON_TYPE()`?
+
+`JSON_TYPE()` returns the **outermost JSON type** of a JSON value as a **SQL STRING**.
+
+```sql
+JSON_TYPE(json_expr)
+```
+
+### Possible return values:
 
 * `object`
 * `array`
@@ -14,87 +26,155 @@ Supported types include:
 * `boolean`
 * `null`
 
-It’s incredibly handy when validating or profiling JSON data—especially from APIs, logs, and streaming sources.
-
----
-## ✅ **Real-Time Use Case: Identifying JSON Types in API Logs**
-
-Your company receives API logs in JSON format.
-But the API sometimes sends values as:
-
-* strings
-* numbers
-* booleans
-* arrays
-* objects
-* null
-
-To handle this correctly in a data pipeline, you want to **detect the type of each incoming JSON payload**.
+If the input is **SQL NULL**, the function returns **SQL NULL**.
 
 ---
 
-# **1️⃣ Create a Table**
+## 🧠 Why `JSON_TYPE()` Matters (Theory)
+
+In real-world data pipelines:
+
+* JSON schemas are often **dynamic**
+* Fields can change shape over time
+* APIs may return **arrays sometimes, objects other times**
+* Validation before transformation is critical
+
+👉 `JSON_TYPE()` lets you **inspect JSON safely before processing it**.
+
+---
+
+## ✨ Simple Examples
+
+### Check the type of different JSON values
 
 ```sql
-CREATE TABLE api_event_logs (
-  event_id INT64,
-  event_payload JSON
+SELECT
+  json_val,
+  JSON_TYPE(json_val) AS type
+FROM
+  UNNEST([
+    JSON '"apple"',
+    JSON '10',
+    JSON '3.14',
+    JSON 'null',
+    JSON '{"city": "New York"}',
+    JSON '["apple", "banana"]',
+    JSON 'false'
+  ]) AS json_val;
+```
+
+🔹 Output:
+
+* `"apple"` → `string`
+* `10` → `number`
+* `{"city":"New York"}` → `object`
+* `["apple","banana"]` → `array`
+
+---
+
+## 🏗️ Real-Time Use Case: Event Data from APIs / PubSub
+
+Imagine you're ingesting **events into BigQuery** where the payload format is not consistent.
+
+---
+
+## 🧱 Step 1: Create Table
+
+```sql
+CREATE TABLE analytics.events_raw (
+  event_id STRING,
+  payload JSON,
+  created_at TIMESTAMP
 );
 ```
 
 ---
 
-# **2️⃣ Insert Real-Time Sample Data**
+## 🧾 Step 2: Insert Mixed JSON Data
 
 ```sql
-INSERT INTO api_event_logs (event_id, event_payload)
-VALUES
-  (101, JSON '{"user": "Alice", "action": "login"}'),              -- object
-  (102, JSON '["item1", "item2", "item3"]'),                       -- array
-  (103, JSON '"Unauthorized Access"'),                             -- string
-  (104, JSON '404'),                                               -- number
-  (105, JSON 'true'),                                              -- boolean
-  (106, JSON 'null'),                                              -- null
-  (107, JSON '{"order_id": 555, "amount": 99.5, "success": true}'); -- object
+INSERT INTO analytics.events_raw VALUES
+('e1', JSON '{"user":"u1","action":"login"}', CURRENT_TIMESTAMP()),
+('e2', JSON '["click","scroll"]', CURRENT_TIMESTAMP()),
+('e3', JSON '"simple_event"', CURRENT_TIMESTAMP()),
+('e4', JSON 'null', CURRENT_TIMESTAMP());
 ```
 
 ---
 
-# **3️⃣ Query Using `JSON_TYPE()`**
-
-Goal: Identify the JSON type of each payload.
+## 🔍 Step 3: Detect JSON Structure
 
 ```sql
 SELECT
   event_id,
-  event_payload,
-  JSON_TYPE(event_payload) AS payload_type
-FROM api_event_logs
-ORDER BY event_id;
+  JSON_TYPE(payload) AS payload_type
+FROM analytics.events_raw;
+```
+
+➡️ Output:
+
+* `e1` → `object`
+* `e2` → `array`
+* `e3` → `string`
+* `e4` → `null`
+
+---
+
+## 🔀 Conditional Logic Using `JSON_TYPE()`
+
+### Process objects and arrays differently
+
+```sql
+SELECT
+  event_id,
+  CASE
+    WHEN JSON_TYPE(payload) = 'object' THEN 'Process as object'
+    WHEN JSON_TYPE(payload) = 'array'  THEN 'Flatten array'
+    ELSE 'Ignore or log'
+  END AS processing_strategy
+FROM analytics.events_raw;
 ```
 
 ---
 
-# **4️⃣ Output (Real Example)**
+## 🧹 Data Validation Example
 
-| event_id | event_payload                                 | payload_type |
-| -------- | --------------------------------------------- | ------------ |
-| 101      | {"user":"Alice","action":"login"}             | object       |
-| 102      | ["item1","item2","item3"]                     | array        |
-| 103      | "Unauthorized Access"                         | string       |
-| 104      | 404                                           | number       |
-| 105      | true                                          | boolean      |
-| 106      | null                                          | null         |
-| 107      | {"order_id":555,"amount":99.5,"success":true} | object       |
+Filter out invalid or unexpected payloads:
+
+```sql
+SELECT *
+FROM analytics.events_raw
+WHERE JSON_TYPE(payload) IN ('object', 'array');
+```
 
 ---
 
-# 🎯 **Why This Is Useful in Real Projects**
+## 🎯 Common Real-World Scenarios
 
-This approach helps you:
+✅ Schema validation before transformation
+✅ Handling inconsistent API responses
+✅ Debugging broken JSON pipelines
+✅ Routing data based on JSON shape
+✅ Building safer ETL / ELT logic
 
-✔ Validate API responses
-✔ Detect corrupted or malformed events
-✔ Drive conditional logic (e.g., handle arrays differently from objects)
-✔ Prevent pipeline failures
-✔ Improve schema understanding
+---
+
+## ⚠️ Things to Remember
+
+* `JSON_TYPE()` checks **only the outermost level**
+* Invalid JSON → error
+* SQL `NULL` → SQL `NULL`
+* Combine with:
+
+  * `JSON_QUERY`
+  * `JSON_VALUE`
+  * `JSON_STRIP_NULLS`
+  * `JSON_SET`
+
+---
+
+## 🧠 TL;DR
+
+> **`JSON_TYPE()` helps you understand what your JSON really is before you transform it — making your BigQuery pipelines safer and smarter.**
+
+If you work with **event data, APIs, or streaming JSON**, this function is a must-know.
